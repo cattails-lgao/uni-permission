@@ -86,7 +86,55 @@ export default {
 		if (this.isIOS()) return iosPermission.CNContactStore();
 	},
 	ios: {
-		open(callback, beforeCallback, afterCallback) {}
+		open(callback, beforeCallback, afterCallback) {
+			if (typeof beforeCallback === 'function') beforeCallback.call(null);
+			
+			const contactPickerVC = plus.ios.newObject("CNContactPickerViewController");
+			const delegate = plus.ios.implements("CNContactPickerDelegate", {
+				"contactPicker:didSelectContact:": (picker, contact) => {
+					console.log(JSON.stringify(picker));
+					console.log(JSON.stringify(contact));
+					//姓名/公司
+					let name = "";
+					//姓氏
+					const familyName = contact.plusGetAttribute("familyName");
+					//名字
+					const givenName = contact.plusGetAttribute("givenName");
+					//公司
+					const organizationName = contact.plusGetAttribute("organizationName");
+					name = familyName + givenName;
+					if (name.length <= 0) {
+						name = organizationName;
+					}
+					//电话号码
+					let phoneNo = "";
+					const phoneNumbers = contact.plusGetAttribute("phoneNumbers");
+					if (phoneNumbers.plusGetAttribute("count") > 0) {
+					    const phone = phoneNumbers.plusGetAttribute("firstObject");
+					    const phoneNumber = phone.plusGetAttribute("value");
+					    phoneNo = phoneNumber.plusGetAttribute("stringValue");
+					}
+					if(callBack){
+					    callBack.call(null, { name, phone: phoneNo });
+					}
+				}
+			})
+			
+			//给通讯录控制器contactPickerVC设置代理
+			plus.ios.invoke(contactPickerVC, "setDelegate:", delegate);
+			//获取跟控制器
+			var rootVc = nativeCommon.contacts.ios.getRootViewController();
+			//由跟控制器present到通讯录控制器
+			plus.ios.invoke(
+				rootVc, 
+				"presentViewController:animated:completion:", 
+				contactPickerVC, 
+				true, 
+				() => {
+					if (typeof afterCallback === 'function') afterCallback.call(null);
+				}
+			);
+		}
 	},
 	android: {
 		open(callback, beforeCallback, afterCallback) {
